@@ -13,7 +13,7 @@ import numpy as np
 import struct
 
 def _convertToRadian(encoder):
-
+    print 'encoder = ',encoder
     return ((float(encoder) - 512.0) * .29296875) * np.pi / 180.
 
 def _convertToTick(radian):
@@ -46,6 +46,10 @@ def _getChecksum(id,len,cmd,address,goal):
         cur += goal[i]
 
     return [~(cur) & 0xff]
+
+def _convertLowHighByteToInteger(low , high):
+
+    return((high[0] & 0x03)<<8) + low[0]
 
 
 

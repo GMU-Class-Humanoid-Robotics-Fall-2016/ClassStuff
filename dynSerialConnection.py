@@ -14,16 +14,27 @@ import sys
 import struct
 import array
 import dynFunctions as dyn
+import ach
+from ctypes import *
 
+class THE_I(Structure):
+    _pack_ = 1
+    _fields_ = [("id"    , c_int16),
+                ("velocity"   , c_double),
+                ("position" , c_double),
+                ("torque" , c_double)]
 
 class dynSerialConnection(object):
 
     def __init__(self , theta , thetaDot , torque , id):
 
+        s = ach.Channel('dynProcess')
+
+
         p = '/dev/ttyUSB0'
         b = 1000000
 
-        id = dyn._convertToSingleByte(id)
+        idByte = dyn._convertToSingleByte(id)
         tickLow , tickHigh = dyn._convertToLowHighByte(dyn._convertToTick(theta))
         address = [0x1e]
 
@@ -36,16 +47,21 @@ class dynSerialConnection(object):
         self._openSerial(p,b)
 
 
-        self._transmitData(id , address , params , [0x03])
-        time.sleep(1)
-        curData , curDataInt = self._readData(id, [0x02])
+        self._transmitData(idByte , address , params , [0x03])
+        curData , curDataInt = self._readData(idByte, [0x02])
 
-        rad = dyn._convertToRadian(dyn._convertLowHighByteToInteger(curDataInt[5],curDataInt[6]))
-        vel = dyn._convertLowHighByteToInteger(curDataInt[7],curDataInt[8])
-        torque = dyn._convertLowHighByteToInteger(curDataInt[9],curDataInt[10])
+        self.radian = dyn._convertToRadian(dyn._convertLowHighByteToInteger(curDataInt[5],curDataInt[6]))
+        self.velocity = dyn._convertLowHighByteToInteger(curDataInt[7],curDataInt[8])
+        self.torque = dyn._convertLowHighByteToInteger(curDataInt[9],curDataInt[10])
 
-        print rad , vel , torque
 
+
+        while True:
+            processData.id = id
+            processData.velocity = self.velocity
+            processData.position = self.radian
+            processData.torque = self.torque
+            s.put(processData)
 
     def _openSerial(self,p,b):
 
@@ -77,16 +93,9 @@ class dynSerialConnection(object):
 
         checkSum = dyn._getChecksum(id,len,cmd,address,parameters)
 
-        # print checkSum
-
-        # checkSumLow , checkSumHigh = dyn._convertToLowHighByte(dyn._getChecksum(id,len,cmd,address,parameters))
-
         output = header + id + len + cmd + address + parameters + checkSum
 
-
-
         outputFinal = bytearray(output)
-
 
         self.ser.write(outputFinal)
         self.ser.read(6)
